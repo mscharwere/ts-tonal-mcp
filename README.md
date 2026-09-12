@@ -107,7 +107,9 @@ The server provides these tools for LLM interactions:
 | `get_muscle_readiness` | Get current muscle readiness percentages for recovery planning |
 | `get_movements` | Browse Tonal movements/exercises, optionally filtered by muscle groups |
 | `search_movements` | Advanced search with 11+ filters (muscle groups, equipment, arm angle, skill level, etc.) |
-| `get_recent_workouts` | View recent workout history with summary statistics |
+| `get_recent_workouts` | View recent workout history with summary statistics and `workoutActivityId` values for `get_workout_activity_details` |
+| `list_workout_activities` | List one page of the account's workout-activity history. **Pagination trap:** offset 0 is the OLDEST activities, not the newest -- use `get_recent_workouts` for recent-activity IDs |
+| `get_workout_activity_details` | Get one completed activity's performed sets, including which resistance mode was actually engaged per set (`chains`/`spotter`/`eccentric`/`burnout`), `repsInReserve`, `avgVelocity`, and per-cable weights with a derived total-load-per-rep figure alongside |
 | `get_user_stats` | Get comprehensive fitness statistics and current streak |
 | `get_recent_progress` | Analyze recent progress including workout frequency and trends |
 | `list_custom_workouts` | List all your custom workouts created on Tonal |
