@@ -38,6 +38,7 @@ export async function getRecentWorkouts(client: TonalClient, args?: { limit?: nu
     const volume = activity.totalVolume.toLocaleString();
     
     report += `**${activity.name}** (${timeAgo})\n`;
+    report += `- workoutActivityId: ${activity.id}\n`;
     report += `- Duration: ${duration} min | Volume: ${volume} lbs | Reps: ${activity.totalReps}\n`;
     report += `- Target: ${activity.targetArea} | Type: ${activity.isGuidedWorkout ? 'Guided' : 'Free Lift'}\n`;
     

@@ -13,6 +13,8 @@ import { getStrengthGoalProgress } from './strength-goal-progress.js';
 import { estimateWorkoutDuration } from './workout-duration.js';
 import { getCurrentStrengthScores, getStrengthScoreHistory } from './strength-scores.js';
 import { getTonalAchievements } from './achievements.js';
+import { listWorkoutActivities } from './workout-activities.js';
+import { getWorkoutActivityDetails } from './workout-activity-details.js';
 
 const setDetailsSchema = {
   type: 'array',
@@ -217,7 +219,7 @@ const fitnessTools: MCPToolDefinition[] = [
 const workoutTools: MCPToolDefinition[] = [
   {
     name: 'get_recent_workouts',
-    description: 'Get recent workout history with summary stats',
+    description: 'Get recent workout history with summary stats and workoutActivityId values for use with get_workout_activity_details',
     inputSchema: {
       type: 'object',
       properties: {
@@ -234,6 +236,55 @@ const workoutTools: MCPToolDefinition[] = [
       destructiveHint: false,
     },
     handler: getRecentWorkouts,
+  },
+  {
+    name: 'list_workout_activities',
+    description: "List one Tonal workout-activity API page. WARNING -- pagination trap: offset 0 selects the account's OLDEST activities, not the most recent ones, and increasing offset advances toward newer activities; rows are displayed newest-first only within the already-selected page. For 'what did I just do' or any recent-activity query, use get_recent_workouts instead -- it is the only way to discover a recent activity's ID for get_workout_activity_details.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        offset: {
+          type: 'integer',
+          minimum: 0,
+          default: 0,
+          description: "Tonal API offset into the oldest-first activity sequence. 0 means the account's oldest activities, not its newest.",
+        },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 100,
+          default: 20,
+          description: 'Maximum activities requested from Tonal for this API page.',
+        },
+        ...userProperty,
+      },
+      required: [],
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+    },
+    handler: listWorkoutActivities,
+  },
+  {
+    name: 'get_workout_activity_details',
+    description: "Get one completed activity's performed sets in original order, with catalog-resolved movement names, per-set weight/reps/one-rep-max/volume/range-of-motion, AND the resistance-mode fields that were actually engaged per set (chains, spotter, spotterMode, eccentric, burnout), plus repsInReserve, avgVelocity, warmUp/dropSet flags, and weightPercentage. Weight fields are per-cable pounds as Tonal reports them; a derived total-load-per-rep figure (totalOnMachineVolume / repCount) is reported alongside so a two-cable lift's real load isn't misread as the per-cable number. Get an activityId from get_recent_workouts (recent) or list_workout_activities (any page).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activityId: {
+          type: 'string',
+          description: 'Workout activity ID, e.g. from get_recent_workouts.',
+        },
+        ...userProperty,
+      },
+      required: ['activityId'],
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+    },
+    handler: getWorkoutActivityDetails,
   },
   {
     name: 'list_custom_workouts',
