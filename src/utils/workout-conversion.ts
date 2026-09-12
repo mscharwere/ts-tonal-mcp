@@ -112,7 +112,7 @@ export function exercisesToSets(
             `Exercise "${movementName}" setDetails[${setIndex}] cannot specify both reps and duration`
           );
         }
-        for (const field of ['warmUp', 'dropSet', 'burnout'] as const) {
+        for (const field of ['warmUp', 'dropSet', 'burnout', 'spotter', 'eccentric', 'chains', 'flex'] as const) {
           const value = setDetailInput[field];
           if (value !== undefined && typeof value !== 'boolean') {
             throw new Error(
@@ -147,6 +147,18 @@ export function exercisesToSets(
         }
         if (typeof setDetailInput.burnout === 'boolean') {
           setDetail.burnout = setDetailInput.burnout;
+        }
+        if (typeof setDetailInput.spotter === 'boolean') {
+          setDetail.spotter = setDetailInput.spotter;
+        }
+        if (typeof setDetailInput.eccentric === 'boolean') {
+          setDetail.eccentric = setDetailInput.eccentric;
+        }
+        if (typeof setDetailInput.chains === 'boolean') {
+          setDetail.chains = setDetailInput.chains;
+        }
+        if (typeof setDetailInput.flex === 'boolean') {
+          setDetail.flex = setDetailInput.flex;
         }
         if (typeof setDetailInput.description === 'string') {
           setDetail.description = setDetailInput.description;
@@ -198,6 +210,31 @@ export function exercisesToSets(
       throw new Error(
         `Movement "${exercise.movementName}" not found. Use search_movements to find valid movement names.`
       );
+    }
+
+    // Pre-flight guard (finding #5): reject a mode request the machine has explicitly
+    // reported as disabled for this movement, instead of silently sending it into a black
+    // box. Only an explicit `true` disabled flag blocks a mode -- onMachineInfo being
+    // absent means Tonal hasn't reported mode-support data for this movement at all
+    // (common for movements outside the on-machine resistance feature set entirely), not
+    // that every mode is unsupported, so it must not block a request on its own.
+    if (exercise.setDetails !== undefined) {
+      const disabledModes: Array<{ field: 'spotter' | 'eccentric' | 'chains' | 'burnout'; disabledFlag: boolean | undefined }> = [
+        { field: 'spotter', disabledFlag: movement.onMachineInfo?.spotterDisabled },
+        { field: 'eccentric', disabledFlag: movement.onMachineInfo?.eccentricDisabled },
+        { field: 'chains', disabledFlag: movement.onMachineInfo?.chainsDisabled },
+        { field: 'burnout', disabledFlag: movement.onMachineInfo?.burnoutDisabled },
+      ];
+
+      exercise.setDetails.forEach((setDetail, index) => {
+        for (const { field, disabledFlag } of disabledModes) {
+          if (setDetail[field] === true && disabledFlag === true) {
+            throw new Error(
+              `Exercise "${exercise.movementName}" set ${index + 1} requests ${field}: true, but this movement does not support ${field} mode (onMachineInfo.${field}Disabled is true). Remove ${field} from this set or choose a movement that supports it.`
+            );
+          }
+        }
+      });
     }
 
     // Check if movement is duration-based or reps-based
@@ -325,10 +362,10 @@ export function exercisesToSets(
             repetitionTotal: pe.setCount,
             blockNumber: blockNumber,
             burnout: hasSetDetails ? (setDetail?.burnout ?? false) : false,
-            spotter: false,
-            eccentric: false,
-            chains: false,
-            flex: false,
+            spotter: hasSetDetails ? (setDetail?.spotter ?? false) : false,
+            eccentric: hasSetDetails ? (setDetail?.eccentric ?? false) : false,
+            chains: hasSetDetails ? (setDetail?.chains ?? false) : false,
+            flex: hasSetDetails ? (setDetail?.flex ?? false) : false,
             warmUp: hasSetDetails
               ? (setDetail?.warmUp ?? pe.exercise.isWarmup ?? false)
               : (pe.exercise.isWarmup ?? false),
@@ -425,6 +462,17 @@ export function reconstructExercisesFromSets(
         warmUp: set.warmUp,
         dropSet: set.dropSet,
         burnout: set.burnout,
+        // Read the on-machine resistance-mode flags back from the API response. Without
+        // this, update_workout silently wiped any of these four modes Carlos had manually
+        // enabled on the Tonal touchscreen -- exercisesToSets only ever received a fresh
+        // false for them (see the write-side default above), because this function never
+        // reconstructed the caller-visible setDetails.{spotter,eccentric,chains,flex} that
+        // an unrelated update_workout edit would otherwise preserve, the same way it
+        // already preserved warmUp/dropSet/burnout.
+        spotter: set.spotter,
+        eccentric: set.eccentric,
+        chains: set.chains,
+        flex: set.flex,
         description: set.description,
       };
 
