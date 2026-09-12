@@ -126,7 +126,9 @@ The server provides these tools for LLM interactions:
 
 ### Per-set programming
 
-`create_workout` and `update_workout` accept `setDetails` when sets differ. Each entry may contain `reps`, `duration`, `weight`, `warmUp`, `dropSet`, `burnout`, and `description`. When present, `setDetails` is authoritative and its length is the set count. Without it, the existing `sets`, `reps`, `duration`, and `weight` fields still create uniform sets.
+`create_workout` and `update_workout` accept `setDetails` when sets differ. Each entry may contain `reps`, `duration`, `weight`, `warmUp`, `dropSet`, `burnout`, `spotter`, `eccentric`, `chains`, `flex`, and `description`. When present, `setDetails` is authoritative and its length is the set count. Without it, the existing `sets`, `reps`, `duration`, and `weight` fields still create uniform sets.
+
+`spotter`, `eccentric`, `chains`, and `burnout` are rejected up front with a clear error if the target movement reports that mode as unsupported (`onMachineInfo.{mode}Disabled`), rather than being sent to Tonal silently. `get_workout_for_editing` reads all four back from the live workout, so an `update_workout` call that never mentions them preserves whatever you last set on the Tonal touchscreen instead of clearing them.
 
 ```json
 {
