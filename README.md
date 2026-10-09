@@ -107,9 +107,10 @@ The server provides these tools for LLM interactions:
 | `get_muscle_readiness` | Get current muscle readiness percentages for recovery planning |
 | `get_movements` | Browse Tonal movements/exercises, optionally filtered by muscle groups |
 | `search_movements` | Advanced search with 11+ filters (muscle groups, equipment, arm angle, skill level, etc.) |
-| `get_recent_workouts` | View recent workout history with summary statistics and `workoutActivityId` values for `get_workout_activity_details` |
+| `get_recent_workouts` | View recent workout history with separate wall-clock (`duration`) and time-under-tension (`timeUnderTension`) totals/averages, plus `workoutActivityId` values for `get_workout_activity_details` / `get_workout_summary` |
 | `list_workout_activities` | List one page of the account's workout-activity history. **Pagination trap:** offset 0 is the OLDEST activities, not the newest -- use `get_recent_workouts` for recent-activity IDs |
 | `get_workout_activity_details` | Get one completed activity's performed sets, including which resistance mode was actually engaged per set (`chains`/`spotter`/`eccentric`/`burnout`), `repsInReserve`, `avgVelocity`, and per-cable weights with a derived total-load-per-rep figure alongside |
+| `get_workout_summary` | Get Tonal's formatted summary for one completed activity: coach, target area, wall-clock `duration` vs `timeUnderTension`, and the per-movement breakdown |
 | `get_user_stats` | Get comprehensive fitness statistics and current streak |
 | `get_recent_progress` | Analyze recent progress including workout frequency and trends |
 | `list_custom_workouts` | List all your custom workouts created on Tonal |
@@ -119,9 +120,9 @@ The server provides these tools for LLM interactions:
 | `get_workout_for_editing` | Get the complete editable structure of an existing workout |
 | `update_workout` | Update an existing workout by replacing its full set list |
 | `estimate_workout_duration` | Estimate how long a prescribed workout will take, without creating or modifying anything |
-| `get_strength_goal_progress` | Get weekly strength-related goal-progress metrics (Strength Sets, Functional Strength Score). **Not** the app's headline Strength Score -- see `get_current_strength_scores`. (Renamed from `get_strength_score`.) |
+| `get_goal_metrics` | Get all weekly goal metrics (Volume, Work, Movement Quality Score, Strength Sets, Power Reps, Endurance Sets, Functional Strength Score) with current-week actual/target/range and a recent trend; optional `filter` by metric name. **Not** the app's headline Strength Score -- see `get_current_strength_scores`. (Replaces `get_strength_goal_progress`.) |
 | `get_current_strength_scores` | Get Tonal's headline per-region Strength Score (Upper Body, Core, Lower Body, Overall) -- the score shown in the app |
-| `get_strength_score_history` | Get per-workout Strength Score history; `days` is a calendar-day lookback (default `'all'`), not a row count |
+| `get_strength_score_history` | Get per-workout Strength Score history; `days` is a calendar-day lookback (default `'all'`), not a row count; includes the oldest-to-newest change per region (Overall/Upper/Core/Lower) |
 | `get_tonal_achievements` | Get achievement progress, next milestones, and full earned-achievement history (most-recent-first) |
 
 ### Per-set programming

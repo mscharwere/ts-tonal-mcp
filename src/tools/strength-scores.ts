@@ -15,7 +15,7 @@ function isSynthesizedOverallRow(score: TonalStrengthScore): boolean {
 
 /**
  * Wraps TonalClient#getCurrentStrengthScores() -- Tonal's headline per-region Strength Score
- * (distinct from the weekly goal-progress metrics returned by get_strength_goal_progress).
+ * (distinct from the weekly goal-progress metrics returned by get_goal_metrics).
  *
  * The "Overall" row is synthesized rather than tied to a real workout: bodyRegionDisplay is
  * empty, familyActivity is absent, workoutActivityId is an all-zero UUID, and updatedAt is a
@@ -38,7 +38,7 @@ export async function getCurrentStrengthScores(client: TonalClient): Promise<MCP
     }
 
     let report = `# 💪 Current Strength Scores\n\n`;
-    report += `Tonal's headline Strength Score per body region (not the weekly goal-progress metrics -- see get_strength_goal_progress for those).\n\n`;
+    report += `Tonal's headline Strength Score per body region (not the weekly goal-progress metrics -- see get_goal_metrics for those).\n\n`;
 
     // Real regions first, the synthesized Overall row last, for a stable readable layout.
     const ordered = [...scores].sort(
@@ -65,6 +65,19 @@ export async function getCurrentStrengthScores(client: TonalClient): Promise<MCP
 }
 
 const HISTORY_DISPLAY_LIMIT = 25;
+
+// Ported from upstream dlwiest/ts-tonal-mcp's strength-score formatting: integers print bare,
+// fractional scores print at up to 2 decimals with trailing zeros trimmed.
+function formatScore(value: number): string {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/\.0+$|(?<=\.\d)0+$/, '');
+}
+
+function formatChange(value: number): string {
+  const formatted = formatScore(value);
+  return value > 0 ? `+${formatted}` : formatted;
+}
 
 function parseDaysArg(rawDays: unknown): number | 'all' {
   if (rawDays === undefined || rawDays === 'all') {
@@ -151,6 +164,17 @@ export async function getStrengthScoreHistory(
   let report = `# 🏋️ Strength Score History\n\n`;
   report += `${sorted.length} scored activit${sorted.length === 1 ? 'y' : 'ies'} found`;
   report += days === 'all' ? ` (full account history)\n\n` : ` (last ${days} day${days === 1 ? '' : 's'})\n\n`;
+
+  // Oldest-to-newest change per region across the WHOLE returned window (not just the rows
+  // displayed below, which are capped at HISTORY_DISPLAY_LIMIT). `sorted` is newest-first.
+  const newest = sorted[0];
+  const oldest = sorted[sorted.length - 1];
+  report += `## Oldest-to-Newest Change (${oldest.activityTime} -> ${newest.activityTime})\n`;
+  report += `- **Overall**: ${formatChange(newest.overall - oldest.overall)}\n`;
+  report += `- **Upper**: ${formatChange(newest.upper - oldest.upper)}\n`;
+  report += `- **Core**: ${formatChange(newest.core - oldest.core)}\n`;
+  report += `- **Lower**: ${formatChange(newest.lower - oldest.lower)}\n\n`;
+  report += `## Activities\n`;
 
   sorted.slice(0, HISTORY_DISPLAY_LIMIT).forEach(entry => {
     report += `- **${entry.activityTime}** -- Overall ${entry.overall} (Upper ${entry.upper} / Core ${entry.core} / Lower ${entry.lower})\n`;

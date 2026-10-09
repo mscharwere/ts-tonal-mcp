@@ -14,21 +14,25 @@ export async function estimateWorkoutDuration(
 
     const movements = await client.getMovements();
     const sets = exercisesToSets(exercises, movements);
-
     const estimate = await client.estimateWorkoutDuration(sets);
-    const totalMinutes = Math.round(estimate.duration / 60);
-    const totalSeconds = estimate.duration;
+
+    const minutes = Math.round(estimate.duration / 60);
 
     let report = `# ⏱️ Estimated Workout Duration\n\n`;
-    report += `**${totalMinutes} minute${totalMinutes === 1 ? '' : 's'}** (${totalSeconds}s)\n\n`;
+    report += `**${minutes} minute${minutes === 1 ? '' : 's'}** (${estimate.duration}s across ${sets.length} set${sets.length === 1 ? '' : 's'})\n\n`;
     report += `## Exercises (${exercises.length} total)\n\n`;
 
+    // Follows create_workout's exercise summary shape, with one deliberate difference: when
+    // setDetails is present the exercise-level weight is labelled "where unspecified".
+    // exercisesToSets resolves each set as (setDetail.weight ?? exercise.weight ?? 0), so a
+    // bare "@ 70%" would overstate uniformity for sets that carry their own weight -- and
+    // this tool exists precisely to describe a workout the caller cannot otherwise inspect.
     exercises.forEach((exercise, index) => {
       const setDetails = Array.isArray(exercise.setDetails) ? exercise.setDetails : undefined;
       const setCount =
         setDetails?.length ??
         (typeof exercise.sets === 'number' ? exercise.sets : 0);
-      report += `${index + 1}. **${exercise.movementName}** - ${setCount} sets`;
+      report += `${index + 1}. **${exercise.movementName}** - ${setCount} set${setCount === 1 ? '' : 's'}`;
 
       if (setDetails) {
         report += ` with per-set programming`;
@@ -39,7 +43,13 @@ export async function estimateWorkoutDuration(
       }
 
       if (typeof exercise.weight === 'number') {
-        report += ` @ ${exercise.weight}%`;
+        const everySetSpecifiesWeight =
+          setDetails?.every(detail => typeof detail?.weight === 'number') ?? false;
+        if (!setDetails) {
+          report += ` @ ${exercise.weight}%`;
+        } else if (!everySetSpecifiesWeight) {
+          report += ` @ ${exercise.weight}% where unspecified`;
+        }
       }
       if (exercise.isWarmup === true) {
         report += ` (Warmup)`;

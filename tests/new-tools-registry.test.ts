@@ -2,20 +2,26 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { toolsRegistry } from '../src/tools/registry.js';
 
-test('get_strength_score is renamed to get_strength_goal_progress (naming collision fix)', () => {
+test('get_strength_goal_progress is retired in favour of get_goal_metrics', () => {
   assert.equal(
     toolsRegistry.get('get_strength_score'),
     undefined,
-    'the old, misleading name must no longer be registered'
+    'the original misleading name must stay unregistered'
+  );
+  assert.equal(
+    toolsRegistry.get('get_strength_goal_progress'),
+    undefined,
+    'get_strength_goal_progress is superseded by get_goal_metrics'
   );
 
-  const tool = toolsRegistry.get('get_strength_goal_progress');
-  assert.ok(tool, 'get_strength_goal_progress must be registered');
+  const tool = toolsRegistry.get('get_goal_metrics');
+  assert.ok(tool, 'get_goal_metrics must be registered');
   assert.equal(tool!.annotations?.readOnlyHint, true);
   assert.equal(tool!.annotations?.destructiveHint, false);
-  assert.ok('user' in tool!.inputSchema.properties);
+  assert.ok('user' in tool!.inputSchema.properties, 'multi-user selector must be kept');
+  assert.ok('filter' in tool!.inputSchema.properties);
   assert.deepEqual(tool!.inputSchema.required, []);
-  assert.match(tool!.description, /NOT the app's headline/i);
+  assert.match(tool!.description, /Functional Strength Score/);
   assert.match(tool!.description, /get_current_strength_scores/);
 });
 

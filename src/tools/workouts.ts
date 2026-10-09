@@ -19,27 +19,35 @@ export async function getRecentWorkouts(client: TonalClient, args?: { limit?: nu
 
   // Show summary stats
   const totalVolume = recentActivities.reduce((sum, w) => sum + w.totalVolume, 0);
-  const totalTime = recentActivities.reduce((sum, w) => sum + w.duration, 0);
-  const avgDuration = totalTime / recentActivities.length / 60;
+  const totalWallClockTime = recentActivities.reduce((sum, w) => sum + w.duration, 0);
+  const totalTimeUnderTension = recentActivities.reduce(
+    (sum, w) => sum + w.timeUnderTension,
+    0
+  );
+  const avgWallClockDuration = totalWallClockTime / recentActivities.length / 60;
+  const avgTimeUnderTension = totalTimeUnderTension / recentActivities.length / 60;
 
   report += `**Summary (last ${recentActivities.length} workouts):**\n`;
   report += `- Total Volume: ${totalVolume.toLocaleString()} lbs\n`;
-  report += `- Total Time: ${Math.round(totalTime / 60)} minutes\n`;
-  report += `- Average Duration: ${Math.round(avgDuration)} minutes\n\n`;
+  report += `- Total Wall-clock Time: ${Math.round(totalWallClockTime / 60)} minutes\n`;
+  report += `- Average Wall-clock Duration: ${Math.round(avgWallClockDuration)} minutes\n`;
+  report += `- Total Time Under Tension: ${Math.round(totalTimeUnderTension / 60)} minutes\n`;
+  report += `- Average Time Under Tension: ${Math.round(avgTimeUnderTension)} minutes\n\n`;
 
   report += `## Workout History\n\n`;
 
-  recentActivities.forEach((activity, index) => {
+  recentActivities.forEach(activity => {
     const date = new Date(activity.timestamp);
     const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
     const timeAgo = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`;
     
-    const duration = Math.round(activity.duration / 60);
+    const wallClockDuration = Math.round(activity.duration / 60);
+    const timeUnderTension = Math.round(activity.timeUnderTension / 60);
     const volume = activity.totalVolume.toLocaleString();
     
     report += `**${activity.name}** (${timeAgo})\n`;
     report += `- workoutActivityId: ${activity.id}\n`;
-    report += `- Duration: ${duration} min | Volume: ${volume} lbs | Reps: ${activity.totalReps}\n`;
+    report += `- Wall-clock duration (duration): ${wallClockDuration} min | Time under tension (timeUnderTension): ${timeUnderTension} min | Volume: ${volume} lbs | Reps: ${activity.totalReps}\n`;
     report += `- Target: ${activity.targetArea} | Type: ${activity.isGuidedWorkout ? 'Guided' : 'Free Lift'}\n`;
     
     if (activity.isInProgram) {

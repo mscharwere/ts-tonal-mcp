@@ -80,3 +80,41 @@ test('respects the limit argument', async () => {
   assert.match(text, /workoutActivityId: activity-1/);
   assert.doesNotMatch(text, /workoutActivityId: activity-2/);
 });
+
+// Ported from upstream dlwiest/ts-tonal-mcp: wall-clock duration and time under tension are
+// different quantities and must never be conflated in totals, averages, or per-row output.
+test('distinguishes wall-clock duration from time under tension in totals and entries', async () => {
+  const client = tonalClient({
+    getActivitySummaries: async () => [
+      activitySummary({ id: 'activity-42', duration: 10_920, timeUnderTension: 360 }),
+    ],
+  });
+
+  const text = reportText(await getRecentWorkouts(client, { limit: 1 }));
+
+  assert.match(text, /Total Wall-clock Time: 182 minutes/);
+  assert.match(text, /Average Wall-clock Duration: 182 minutes/);
+  assert.match(text, /Total Time Under Tension: 6 minutes/);
+  assert.match(text, /Average Time Under Tension: 6 minutes/);
+  assert.match(text, /Wall-clock duration \(duration\): 182 min/);
+  assert.match(text, /Time under tension \(timeUnderTension\): 6 min/);
+  assert.doesNotMatch(text, /^- Duration:/m);
+  assert.doesNotMatch(text, /Average Duration:/);
+  assert.match(text, /workoutActivityId: activity-42/, 'the workoutActivityId line is preserved');
+});
+
+test('averages wall-clock time and time under tension independently across several workouts', async () => {
+  const client = tonalClient({
+    getActivitySummaries: async () => [
+      activitySummary({ id: 'a1', duration: 3600, timeUnderTension: 600 }),
+      activitySummary({ id: 'a2', duration: 1800, timeUnderTension: 1200 }),
+    ],
+  });
+
+  const text = reportText(await getRecentWorkouts(client, { limit: 2 }));
+
+  assert.match(text, /Total Wall-clock Time: 90 minutes/);
+  assert.match(text, /Average Wall-clock Duration: 45 minutes/);
+  assert.match(text, /Total Time Under Tension: 30 minutes/);
+  assert.match(text, /Average Time Under Tension: 15 minutes/);
+});

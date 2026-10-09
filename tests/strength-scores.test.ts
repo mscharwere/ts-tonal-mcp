@@ -157,7 +157,9 @@ test('sorts history entries by activityTime, most-recent-first, defensively (no 
     ],
   });
 
-  const text = reportText(await getStrengthScoreHistory(client, {}));
+  const full = reportText(await getStrengthScoreHistory(client, {}));
+  // Only the activity list is ordered; the change summary above it names the range endpoints.
+  const text = full.slice(full.indexOf('## Activities'));
   const idx20 = text.indexOf('2026-08-20');
   const idx10 = text.indexOf('2026-08-10');
   const idx01 = text.indexOf('2026-08-01');
@@ -217,4 +219,51 @@ test('rejects a non-numeric, non-"all" days value with a validation error', asyn
   const response = await getStrengthScoreHistory(client, { days: 'yesterday' });
   assert.equal(response.isError, true);
   assert.match(reportText(response), /days must be a positive number or 'all'/);
+});
+
+// --- Oldest-to-newest change per region (ported from upstream dlwiest/ts-tonal-mcp) ---
+
+test('reports oldest-to-newest change per region with explicit signs', async () => {
+  const client = tonalClient({
+    getStrengthScoreHistory: async () => [
+      historyEntry({ activityTime: '2026-08-20T00:00:00.000Z', overall: 42, upper: 44, core: 30, lower: 33 }),
+      historyEntry({ activityTime: '2026-08-01T00:00:00.000Z', overall: 38, upper: 40, core: 30, lower: 35 }),
+      historyEntry({ activityTime: '2026-08-10T00:00:00.000Z', overall: 40, upper: 41, core: 31, lower: 34 }),
+    ],
+  });
+
+  const text = reportText(await getStrengthScoreHistory(client, {}));
+
+  assert.match(text, /\*\*Overall\*\*: \+4\b/);
+  assert.match(text, /\*\*Upper\*\*: \+4\b/);
+  assert.match(text, /\*\*Core\*\*: 0\b/, 'no change prints a bare 0, not +0');
+  assert.match(text, /\*\*Lower\*\*: -2\b/);
+});
+
+test('change is computed over the whole window, not just the displayed rows', async () => {
+  // 30 entries (display is capped at 25): overall climbs 1 point per entry, oldest = 1, newest = 30.
+  const entries = Array.from({ length: 30 }, (_, i) =>
+    historyEntry({
+      id: `h${i}`,
+      activityTime: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+      overall: i + 1,
+      upper: 10,
+      core: 10,
+      lower: 10,
+    })
+  );
+  const client = tonalClient({ getStrengthScoreHistory: async () => entries });
+
+  const text = reportText(await getStrengthScoreHistory(client, {}));
+
+  assert.match(text, /\*\*Overall\*\*: \+29\b/);
+  assert.match(text, /\.\.\.and 5 more/);
+});
+
+test('a single scored activity reports zero change', async () => {
+  const client = tonalClient({ getStrengthScoreHistory: async () => [historyEntry({})] });
+
+  const text = reportText(await getStrengthScoreHistory(client, {}));
+
+  assert.match(text, /\*\*Overall\*\*: 0\b/);
 });

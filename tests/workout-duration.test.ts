@@ -89,3 +89,106 @@ test('surfaces a client-level estimateWorkoutDuration failure as isError, not sw
   assert.match(text, /estimate_workout_duration/);
   assert.match(text, /cannot unmarshal object into Go value of type content\.SetList/);
 });
+
+// --- Ported from upstream dlwiest/ts-tonal-mcp: header set count, singular/plural, per-set weight ---
+
+test('header reports the set count and singularizes one set / one minute', async () => {
+  const client = tonalClient({
+    getMovements: async () => [BENCH_MOVEMENT],
+    estimateWorkoutDuration: async () => ({ duration: 60 }),
+  });
+
+  const text = reportText(
+    await estimateWorkoutDuration(client, {
+      exercises: [{ movementName: 'Bench Press', sets: 1, reps: 5 }],
+    })
+  );
+
+  assert.match(text, /60s across 1 set\b/, 'one set must not read "1 sets"');
+  assert.match(text, /\*\*1 minute\*\*/);
+  assert.match(text, /\*\*Bench Press\*\* - 1 set\b/, 'per-exercise count is singular too');
+  assert.doesNotMatch(text, /1 sets/);
+});
+
+test('header counts every set across exercises', async () => {
+  const client = tonalClient({
+    getMovements: async () => [BENCH_MOVEMENT],
+    estimateWorkoutDuration: async () => ({ duration: 725 }),
+  });
+
+  const text = reportText(
+    await estimateWorkoutDuration(client, {
+      exercises: [{ movementName: 'Bench Press', sets: 3, reps: 10 }],
+    })
+  );
+
+  assert.match(text, /725s across 3 sets/);
+});
+
+test('labels an exercise weight as a fallback when only some sets specify their own', async () => {
+  // exercisesToSets resolves per-set weight as (setDetail.weight ?? exercise.weight ?? 0), so 70
+  // reaches only the set that omits a weight. A bare "@ 70%" would imply all three.
+  let received: TonalWorkoutEstimateSet[] | undefined;
+  const client = tonalClient({
+    getMovements: async () => [BENCH_MOVEMENT],
+    estimateWorkoutDuration: async (sets: TonalWorkoutEstimateSet[]) => {
+      received = sets;
+      return { duration: 300 };
+    },
+  });
+
+  const text = reportText(
+    await estimateWorkoutDuration(client, {
+      exercises: [
+        {
+          movementName: 'Bench Press',
+          weight: 70,
+          setDetails: [{ reps: 10 }, { reps: 8, weight: 85 }, { reps: 6, weight: 95 }],
+        },
+      ],
+    })
+  );
+
+  assert.match(text, /3 sets with per-set programming @ 70% where unspecified/);
+  assert.equal(received?.[0].weightPercentage, 70, 'set without its own weight inherits 70');
+  assert.equal(received?.[1].weightPercentage, 85);
+  assert.equal(received?.[2].weightPercentage, 95);
+});
+
+test('omits the exercise weight entirely when every set specifies its own', async () => {
+  const client = tonalClient({
+    getMovements: async () => [BENCH_MOVEMENT],
+    estimateWorkoutDuration: async () => ({ duration: 200 }),
+  });
+
+  const text = reportText(
+    await estimateWorkoutDuration(client, {
+      exercises: [
+        {
+          movementName: 'Bench Press',
+          weight: 70,
+          setDetails: [{ reps: 10, weight: 80 }, { reps: 8, weight: 90 }],
+        },
+      ],
+    })
+  );
+
+  assert.doesNotMatch(text, /70%/, '70 reaches no set, so printing it would be false');
+  assert.match(text, /2 sets with per-set programming/);
+});
+
+test('a uniform exercise still prints its weight without the fallback wording', async () => {
+  const client = tonalClient({
+    getMovements: async () => [BENCH_MOVEMENT],
+    estimateWorkoutDuration: async () => ({ duration: 300 }),
+  });
+
+  const text = reportText(
+    await estimateWorkoutDuration(client, {
+      exercises: [{ movementName: 'Bench Press', sets: 3, reps: 10, weight: 70 }],
+    })
+  );
+
+  assert.match(text, /3 sets × 10 reps @ 70%/);
+  assert.doesNotMatch(text, /where unspecified/);
+});

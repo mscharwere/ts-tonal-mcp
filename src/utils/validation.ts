@@ -26,6 +26,25 @@ export function validateOptionalString(value: unknown, fieldName: string): strin
   return value;
 }
 
+export function validateOptionalPositiveInteger(
+  value: unknown,
+  fieldName: string
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new TonalMCPError(
+      `${fieldName} must be a positive integer`,
+      'VALIDATION_ERROR',
+      400
+    );
+  }
+
+  return value;
+}
+
 export function validateWorkoutExercises(
   value: unknown
 ): asserts value is ValidatedWorkoutExercise[] {

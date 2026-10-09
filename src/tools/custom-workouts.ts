@@ -293,7 +293,7 @@ export async function createWorkout(
       const setCount =
         setDetails?.length ??
         (typeof exercise.sets === 'number' ? exercise.sets : 0);
-      report += `${index + 1}. **${exercise.movementName}** - ${setCount} sets`;
+      report += `${index + 1}. **${exercise.movementName}** - ${setCount} set${setCount === 1 ? '' : 's'}`;
 
       if (setDetails) {
         report += ` with per-set programming`;
