@@ -118,3 +118,80 @@ test('averages wall-clock time and time under tension independently across sever
   assert.match(text, /Total Time Under Tension: 30 minutes/);
   assert.match(text, /Average Time Under Tension: 15 minutes/);
 });
+
+// Ported from upstream dlwiest/ts-tonal-mcp PR #12. An activity imported from another app
+// comes back from Tonal with no name or workout type, an empty target area, no volume or
+// reps, and a time under tension that just repeats the duration.
+function externalActivity(overrides: Record<string, unknown> = {}): TonalActivitySummary {
+  const { name: _name, workoutType: _workoutType, ...unnamed } = activitySummary();
+  return {
+    ...unnamed,
+    id: 'activity-43',
+    targetArea: '',
+    duration: 2_700,
+    timeUnderTension: 2_700,
+    totalReps: 0,
+    totalVolume: 0,
+    activityType: 'External',
+    source: 'Apple Watch',
+    externalWorkoutType: 'walking',
+    ...overrides,
+  } as unknown as TonalActivitySummary;
+}
+
+test('labels activities imported from other apps instead of rendering an undefined name', async () => {
+  const text = reportText(await getRecentWorkouts(tonalClient({
+    getActivitySummaries: async () => [externalActivity()],
+  }), { limit: 1 }));
+
+  assert.match(text, /^\*\*External activity: walking \(Apple Watch\)\*\* \(/m);
+  assert.match(text, /workoutActivityId: activity-43/);
+  assert.match(text, /^- Wall-clock duration \(duration\): 45 min$/m);
+  assert.match(text, /^- Type: External \(no Tonal activity detail, volume, reps, or time under tension\)$/m);
+  assert.doesNotMatch(text, /undefined|Free Lift|Target:/);
+});
+
+test('falls back to "not reported" when an imported activity lacks its source or type', async () => {
+  const text = reportText(await getRecentWorkouts(tonalClient({
+    getActivitySummaries: async () => [externalActivity({ source: undefined, externalWorkoutType: undefined })],
+  }), { limit: 1 }));
+
+  assert.match(text, /External activity: not reported \(source not reported\)/);
+  assert.doesNotMatch(text, /undefined/);
+});
+
+test('leaves imported activities out of the summary totals', async () => {
+  const text = reportText(await getRecentWorkouts(tonalClient({
+    getActivitySummaries: async () => [
+      activitySummary({ id: 'activity-42', duration: 10_920, timeUnderTension: 360 }),
+      externalActivity(),
+    ],
+  }), { limit: 2 }));
+
+  assert.match(text, /Summary \(last 1 workouts\)/);
+  assert.match(text, /Total Wall-clock Time: 182 minutes/);
+  assert.match(text, /Average Wall-clock Duration: 182 minutes/);
+  assert.match(text, /Total Time Under Tension: 6 minutes/);
+  assert.match(text, /Average Time Under Tension: 6 minutes/);
+  assert.match(text, /^- External Activities: 1 \(imported from other apps, not included above\)$/m);
+  assert.match(text, /\*\*Full Body\*\*/);
+  assert.match(text, /\*\*External activity: walking \(Apple Watch\)\*\*/);
+});
+
+test('reports zero averages rather than NaN when every recent activity is imported', async () => {
+  const text = reportText(await getRecentWorkouts(tonalClient({
+    getActivitySummaries: async () => [externalActivity()],
+  }), { limit: 1 }));
+
+  assert.match(text, /Average Wall-clock Duration: 0 minutes/);
+  assert.match(text, /Average Time Under Tension: 0 minutes/);
+  assert.doesNotMatch(text, /NaN/);
+});
+
+test('does not mention external activities when there are none', async () => {
+  const text = reportText(await getRecentWorkouts(tonalClient({
+    getActivitySummaries: async () => [activitySummary()],
+  }), { limit: 1 }));
+
+  assert.doesNotMatch(text, /External Activities:/);
+});

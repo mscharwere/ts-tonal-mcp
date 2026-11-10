@@ -243,7 +243,7 @@ const fitnessTools: MCPToolDefinition[] = [
 const workoutTools: MCPToolDefinition[] = [
   {
     name: 'get_recent_workouts',
-    description: 'Get recent workout history with wall-clock (duration) and time-under-tension (timeUnderTension) stats plus workoutActivityId values for use with get_workout_activity_details or get_workout_summary',
+    description: 'Get recent workout history with wall-clock (duration) and time-under-tension (timeUnderTension) stats plus workoutActivityId values for use with get_workout_activity_details or get_workout_summary. Activities imported from other apps are labelled as external and left out of the summary totals; they have no Tonal activity detail.',
     inputSchema: {
       type: 'object',
       properties: {
