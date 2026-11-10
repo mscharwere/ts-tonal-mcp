@@ -1,4 +1,5 @@
 import TonalClient, { TonalClientError } from '@dlwiest/ts-tonal-client';
+import { TonalMCPError } from '../utils/error-handler.js';
 
 // Auth0 locks a Tonal account after repeated failed logins, so a rejected login must
 // not be replayed on every tool call.
@@ -17,7 +18,7 @@ export class TonalService {
   private rejectedLogins: Map<string, RejectedLogin> = new Map();
 
   async getClient(user: string = 'carlos'): Promise<TonalClient> {
-    // "Carlos" and "carlos" use the same credentials, so they must share state;
+    // "UserA" and "usera" use the same credentials, so they must share state;
     // otherwise a different casing would sidestep the backoff.
     const userKey = user.toUpperCase();
 
@@ -30,10 +31,12 @@ export class TonalService {
     if (rejected) {
       const remainingMs = REJECTED_LOGIN_RETRY_MS - (Date.now() - rejected.at);
       if (remainingMs > 0) {
-        throw new Error(
+        throw new TonalMCPError(
           `Tonal login for user "${user}" was rejected (${rejected.message}). ` +
             `Not retrying for another ${Math.ceil(remainingMs / 1000)}s to avoid locking the account. ` +
-            `Check the TONAL_USERNAME_${userKey} / TONAL_PASSWORD_${userKey} credentials.`
+            `Check this user's configured Tonal credentials.`,
+          'LOGIN_BACKOFF',
+          429
         );
       }
       this.rejectedLogins.delete(userKey);
